@@ -7,6 +7,7 @@ library(conflicted)
 filename_gbd_data <- '.\\www\\England_Regions_and_UTLA_Incidence_and_Prevalence.csv'
 filename_gbd_hierarchies <- '.\\www\\GBD_Hierarchies.xlsx'
 filename_popn_data <- '.\\www\\gp-reg-pat-prac-quin-age.csv'
+filename_popn_hierarchies <- '.\\www\\gp-reg-pat-prac-map.csv'
 
 # GBD Hierarchies ----
 # ════════════════════
@@ -108,3 +109,41 @@ df_popn_data <- read.csv(filename_popn_data) %>%
          GENDER = as.factor(df_codes$desc[df_codes$field=='sex_name'][GENDER]),
          AGE_BAND = as.factor(df_codes$desc[df_codes$field=='age_name'][AGE_BAND])
          )
+
+# Load the registered population hierarchies ----
+# ═══════════════════════════════════════════════
+df_popn_map <- read.csv(filename_popn_hierarchies)
+
+df_popn_hierarchy <- df_popn_map %>% 
+  mutate(org_id = COMM_REGION_CODE,
+         org_name = COMM_REGION_NAME,
+         parent_org_id = 'ENG',
+         .keep = 'none') %>%
+  distinct(org_id, org_name, parent_org_id) %>%
+  bind_rows(df_popn_map %>% 
+              mutate(org_id = ICB_CODE,
+                     org_name = gsub('Integrated Care Board', 'ICB', ICB_NAME),
+                     parent_org_id = COMM_REGION_CODE,
+                     .keep = 'none') %>%
+              distinct(org_id, org_name, parent_org_id)) %>%
+  bind_rows(df_popn_map %>% 
+              mutate(org_id = SUB_ICB_LOCATION_CODE,
+                     org_name = SUB_ICB_LOCATION_NAME,
+                     parent_org_id = ICB_CODE,
+                     .keep = 'none') %>%
+              distinct(org_id, org_name, parent_org_id)) %>%
+  bind_rows(df_popn_map %>% 
+              dplyr::filter(PCN_CODE!='U') %>%
+              mutate(org_id = PCN_CODE,
+                     org_name = PCN_NAME,
+                     parent_org_id = SUB_ICB_LOCATION_CODE,
+                     .keep = 'none') %>%
+              distinct(org_id, org_name, parent_org_id)) %>%
+  bind_rows(df_popn_map %>% 
+              dplyr::filter(PCN_CODE!='U') %>%
+              mutate(org_id = PRACTICE_CODE,
+                     org_name = PRACTICE_NAME,
+                     parent_org_id = PCN_CODE,
+                     .keep = 'none') %>%
+              distinct(org_id, org_name, parent_org_id))
+  
