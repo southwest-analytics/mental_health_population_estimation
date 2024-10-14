@@ -1,11 +1,12 @@
 library(tidyverse)
 library(readxl)
 library(shiny)
+library(shinyjs)
 library(conflicted)
 
-filename_gbd_data <- '.\\MH_PopEst\\www\\England_Regions_and_UTLA_Incidence_and_Prevalence.csv'
-filename_gbd_hierarchies <- '.\\MH_PopEst\\www\\GBD_Hierarchies.xlsx'
-filename_popn_data <- '.\\MH_PopEst\\www\\gp-reg-pat-prac-quin-age.csv'
+filename_gbd_data <- '.\\www\\England_Regions_and_UTLA_Incidence_and_Prevalence.csv'
+filename_gbd_hierarchies <- '.\\www\\GBD_Hierarchies.xlsx'
+filename_popn_data <- '.\\www\\gp-reg-pat-prac-quin-age.csv'
 
 # GBD Hierarchies ----
 # ════════════════════
@@ -90,10 +91,14 @@ df_codes <- data.frame(code = as.integer(), desc = as.character(), field = as.ch
                field = 'population_area'))
   
 df_gbd_locations <- read_excel(path = filename_gbd_hierarchies,
-                               sheet = 'GBD 2021 Locations Hierarchy')
+                               sheet = 'GBD 2021 Locations Hierarchy') %>%
+  rename_with(.fn = ~c('version', 'loc_id', 'loc_name', 'parent_id', 'level', 'sort_order'))
 
 df_gbd_causes <- read_excel(path = filename_gbd_hierarchies,
-                            sheet = 'Cause Hierarchy')
+                            sheet = 'Cause Hierarchy') %>%
+  rename_with(.fn = ~c('cause_id', 'cause_name', 'parent_id', 'parent_name', 
+                       'level', 'cause_outline', 'sort_order', 'yll_only', 'yld_only'))
+  
 
 # Load the registered population data ----
 # ════════════════════════════════════════
