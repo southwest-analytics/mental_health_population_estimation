@@ -6,23 +6,8 @@ fluidPage(
   sidebarLayout(
     # Side Bar Panel
     sidebarPanel(
-      selectInput(inputId = 'edtPopnRegion',
-                  label = 'Popn Region',
-                  choices = setNames(c('ALL', df_popn_hierarchy %>% dplyr::filter(parent_org_id == 'ENG') %>% .$org_id), 
-                                     c('ALL', df_popn_hierarchy %>% dplyr::filter(parent_org_id == 'ENG') %>% .$org_name)),
-                  selected = 'ALL'),
-      selectInput(inputId = 'edtPopnICB',
-                  label = 'Popn ICB',
-                  choices = 'None'),
-      selectInput(inputId = 'edtPopnSubICB',
-                  label = 'Popn Sub-ICB',
-                  choices = 'None'),
-      selectInput(inputId = 'edtPopnPCN',
-                  label = 'Popn PCN',
-                  choices = 'None'),
-      selectInput(inputId = 'edtPopnPrac',
-                  label = 'Popn Practice',
-                  choices = 'None'),
+      tags$h3('Popn Source'),
+      shinyTree(outputId = 'edtPopnTree'),
       # selectInput(inputId = 'edtAgeBand',
       #             label = 'Age Bands',
       #             selected = 'All',
@@ -37,24 +22,17 @@ fluidPage(
       #                         '80-84','85-89',
       #                         '90-94','95+'),
       #             multiple = TRUE),
-      selectInput(inputId = 'edtPrevRegion',
-                  label = 'Prevalence|Incidence Region',
-                  choices = setNames(c('ALL', df_gbd_locations %>% dplyr::filter(parent_id == 4749) %>% .$loc_id), 
-                                     c('ALL', df_gbd_locations %>% dplyr::filter(parent_id == 4749) %>% .$loc_name))),
-      selectInput(inputId = 'edtPrevUTLA',
-                  label = 'Prevalence|Incidence UTLA',
-                  choices = 'None'),
+      tags$h3('Prevalence|Incidence Source'),
+      shinyTree(outputId = 'edtPrevTree'),
       checkboxGroupInput(inputId = 'chkPrevIncd',
                          label = 'Prevalence|Incidence',
                          choices = c('Prevalence', 'Incidence'),
                          selected = 'Prevalence'),
-      selectInput(inputId = 'edtCauses',
-                  label = 'Causes',
-                  choices = setNames(df_gbd_causes %>% dplyr::filter(parent_id %in% c(558, 567, 572, 973, 561)) %>% .$cause_id, 
-                                     df_gbd_causes %>% dplyr::filter(parent_id %in% c(558, 567, 572, 973, 561)) %>% .$cause_name),
-                  multiple = TRUE)
+      shinyTree(outputId = 'edtCauseTree', checkbox = TRUE, multiple = TRUE, three_state = TRUE)
     ),
     # Main Panel
-    mainPanel()
+    mainPanel(
+      verbatimTextOutput(outputId = 'txtCauses')
+    )
   )
 )

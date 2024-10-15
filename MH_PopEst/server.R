@@ -1,75 +1,19 @@
 # Define server logic required to draw a histogram
 function(input, output, session) {
+  
+  rvData <- reactiveVal()
 
-  observeEvent(input$edtPrevRegion,
-               {
-                 if(input$edtPrevRegion == 'ALL')
-                   shinyjs::hide(id = 'edtPrevUTLA')
-                 else {
-                   updateSelectInput(inputId = 'edtPrevUTLA',
-                                     choices = setNames(c('ALL', df_gbd_locations %>% dplyr::filter(parent_id == input$edtPrevRegion) %>% .$loc_id), 
-                                                        c('ALL', df_gbd_locations %>% dplyr::filter(parent_id == input$edtPrevRegion) %>% .$loc_name)),
-                                     selected = 'ALL')
-                   shinyjs::show(id = 'edtPrevUTLA')
-                 }
-               }
-  )
+  output$edtPopnTree <- renderTree(popn_tree)
   
-  observeEvent(input$edtPopnRegion,
-               {
-                 if(input$edtPopnRegion == 'ALL')
-                   shinyjs::hide(id = 'edtPopnICB')
-                 else {
-                   updateSelectInput(inputId = 'edtPopnICB',
-                                     choices = setNames(c('ALL', df_popn_hierarchy %>% dplyr::filter(parent_org_id == input$edtPopnRegion) %>% .$org_id), 
-                                                        c('ALL', df_popn_hierarchy %>% dplyr::filter(parent_org_id == input$edtPopnRegion) %>% .$org_name)),
-                                     selected = 'ALL')
-                   shinyjs::show(id = 'edtPopnICB')
-                 }
-               }
-  )
+  output$edtPrevTree <- renderTree(gbd_tree)
   
-  observeEvent(input$edtPopnICB,
-               {
-                 if(input$edtPopnICB == 'ALL')
-                   shinyjs::hide(id = 'edtPopnSubICB')
-                 else {
-                   updateSelectInput(inputId = 'edtPopnSubICB',
-                                     choices = setNames(c('ALL', df_popn_hierarchy %>% dplyr::filter(parent_org_id == input$edtPopnICB) %>% .$org_id), 
-                                                        c('ALL', df_popn_hierarchy %>% dplyr::filter(parent_org_id == input$edtPopnICB) %>% .$org_name)),
-                                     selected = 'ALL')
-                   shinyjs::show(id = 'edtPopnSubICB')
-                 }
-               }
-  )
+  output$edtCauseTree <- renderTree(cause_tree)
   
-  observeEvent(input$edtPopnSubICB,
-               {
-                 if(input$edtPopnSubICB == 'ALL')
-                   shinyjs::hide(id = 'edtPopnPCN')
-                 else {
-                   updateSelectInput(inputId = 'edtPopnPCN',
-                                     choices = setNames(c('ALL', df_popn_hierarchy %>% dplyr::filter(parent_org_id == input$edtPopnSubICB) %>% .$org_id), 
-                                                        c('ALL', df_popn_hierarchy %>% dplyr::filter(parent_org_id == input$edtPopnSubICB) %>% .$org_name)),
-                                     selected = 'ALL')
-                   shinyjs::show(id = 'edtPopnPCN')
-                 }
-               }
-  )
-
-  observeEvent(input$edtPopnPCN,
-               {
-                 if(input$edtPopnPCN == 'ALL')
-                   shinyjs::hide(id = 'edtPopnPrac')
-                 else {
-                   updateSelectInput(inputId = 'edtPopnPrac',
-                                     choices = setNames(c('ALL', df_popn_hierarchy %>% dplyr::filter(parent_org_id == input$edtPopnPCN) %>% .$org_id), 
-                                                        c('ALL', df_popn_hierarchy %>% dplyr::filter(parent_org_id == input$edtPopnPCN) %>% .$org_name)),
-                                     selected = 'ALL')
-                   shinyjs::show(id = 'edtPopnPrac')
-                 }
-               }
-  )
+  output$txtCauses <- renderPrint({
+    my_list <- get_selected(input$edtCauseTree, format = 'names')
+    selected_causes <- as.integer(gsub('\\[|\\]', '', str_sub(unlist(my_list), str_locate(unlist(my_list), '\\[\\d+\\]'))))
+    return(selected_causes)
+  })
   
   # Ensure the session stops
   session$onSessionEnded(stopApp)

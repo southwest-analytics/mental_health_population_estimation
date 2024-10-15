@@ -2,6 +2,8 @@ library(tidyverse)
 library(readxl)
 library(shiny)
 library(shinyjs)
+library(shinyTree)
+library(htmltools)
 library(conflicted)
 
 filename_gbd_data <- '.\\www\\England_Regions_and_UTLA_Incidence_and_Prevalence.csv'
@@ -99,7 +101,48 @@ df_gbd_causes <- read_excel(path = filename_gbd_hierarchies,
                             sheet = 'Cause Hierarchy') %>%
   rename_with(.fn = ~c('cause_id', 'cause_name', 'parent_id', 'parent_name', 
                        'level', 'cause_outline', 'sort_order', 'yll_only', 'yld_only'))
-  
+
+cause_tree <- dfToTree(df_gbd_causes %>% 
+                         dplyr::filter(cause_id %in% c(558, 973)) %>% 
+                         mutate(level_1_id = parent_id, level_1_name = parent_name, level_2_id = cause_id, level_2_name = cause_name,
+                                .keep = 'none') %>%
+                         left_join(
+                           df_gbd_causes %>% 
+                             mutate(level_2_id = parent_id, level_3_id = cause_id, level_3_name = cause_name,
+                                    .keep = 'none'),
+                           by = 'level_2_id') %>%
+                         left_join(
+                           df_gbd_causes %>% 
+                             mutate(level_3_id = parent_id, level_4_id = cause_id, level_4_name = cause_name,
+                                    .keep = 'none'),
+                           by = 'level_3_id') %>%
+                         mutate(level_1_label = if_else(is.na(level_1_id), NA, sprintf('%s - [%d]', level_1_name, level_1_id)),
+                                level_2_label = if_else(is.na(level_2_id), NA, sprintf('%s - [%d]', level_2_name, level_2_id)),
+                                level_3_label = if_else(is.na(level_3_id), NA, sprintf('%s - [%d]', level_3_name, level_3_id)),
+                                level_4_label = if_else(is.na(level_4_id), NA, sprintf('%s - [%d]', level_4_name, level_4_id)),
+                                .keep = 'none'),
+                       c('level_1_label', 'level_2_label', 'level_3_label', 'level_4_label'))
+
+# Process gbd locations to tree format ----
+# ─────────────────────────────────────────
+df_gbd_country <- df_gbd_locations %>% 
+  dplyr::filter(loc_id == 4749) %>% 
+  mutate(parent_id = NA, country_id = loc_id, country_name = loc_name, .keep = 'none')
+
+df_gbd_region <- df_gbd_locations %>% semi_join(df_gbd_country, by = c('parent_id' = 'country_id')) %>%
+  mutate(parent_id, region_id = loc_id, region_name = loc_name, .keep = 'none')
+
+df_gbd_utla <- df_gbd_locations %>% semi_join(df_gbd_region, by = c('parent_id' = 'region_id')) %>%
+  mutate(parent_id, utla_id = loc_id, utla_name = loc_name, .keep = 'none')
+
+df_gbd_tree <- df_gbd_country %>% 
+  left_join(df_gbd_region, by = c('country_id' = 'parent_id')) %>%
+  left_join(df_gbd_utla, by = c('region_id' = 'parent_id'))
+
+gbd_tree <- dfToTree(df_gbd_tree %>% mutate(country_label = sprintf('%s - [%d]', country_name, country_id),
+                                            region_label = sprintf('%s - [%d]', region_name, region_id),
+                                            utla_label = sprintf('%s - [%d]', utla_name, utla_id),
+                                            .keep = 'none'), c('country_label', 'region_label', 'utla_label'))
 
 # Load the registered population data ----
 # ════════════════════════════════════════
@@ -110,40 +153,31 @@ df_popn_data <- read.csv(filename_popn_data) %>%
          AGE_BAND = as.factor(df_codes$desc[df_codes$field=='age_name'][AGE_BAND])
          )
 
+df_popn_data <- df_popn_data %>% 
+  bind_rows(
+    df_popn_data %>% 
+      dplyr::filter(ORG_TYPE == 'Comm Region') %>% 
+      group_by(GENDER, AGE_BAND) %>%
+      summarise(POPN = sum(POPN, na.rm = TRUE), .groups = 'keep') %>%
+      ungroup() %>%
+      mutate(ORG_TYPE = 'Country', ORG_CODE = 'ENG') %>%
+      select(ORG_TYPE, ORG_CODE, GENDER, AGE_BAND, POPN)
+  )
+
 # Load the registered population hierarchies ----
 # ═══════════════════════════════════════════════
-df_popn_map <- read.csv(filename_popn_hierarchies)
+df_popn_map <- read.csv(filename_popn_hierarchies) %>%
+  mutate(ICB_NAME = gsub('Integrated Care Board', 'ICB', ICB_NAME),
+         COUNTRY_NAME = 'England', COUNTRY_CODE = 'ENG')
+  
+popn_tree <- dfToTree(df_popn_map %>% 
+                        mutate(COUNTRY = sprintf('%s - [%s]', COUNTRY_NAME, COUNTRY_CODE),
+                               REGION = sprintf('%s - [%s]', COMM_REGION_NAME, COMM_REGION_CODE),
+                               ICB = sprintf('%s - [%s]', ICB_NAME, ICB_CODE),
+                               SUB_ICB = sprintf('%s - [%s]', SUB_ICB_LOCATION_NAME, SUB_ICB_LOCATION_CODE),
+                               PCN = sprintf('%s - [%s]', PCN_NAME, PCN_CODE),
+                               PRACTICE = sprintf('%s - [%s]', PRACTICE_NAME, PRACTICE_CODE),
+                               .keep = 'none'), 
+                      c('COUNTRY', 'REGION', 'ICB', 'SUB_ICB', 'PCN', 'PRACTICE'))
 
-df_popn_hierarchy <- df_popn_map %>% 
-  mutate(org_id = COMM_REGION_CODE,
-         org_name = COMM_REGION_NAME,
-         parent_org_id = 'ENG',
-         .keep = 'none') %>%
-  distinct(org_id, org_name, parent_org_id) %>%
-  bind_rows(df_popn_map %>% 
-              mutate(org_id = ICB_CODE,
-                     org_name = gsub('Integrated Care Board', 'ICB', ICB_NAME),
-                     parent_org_id = COMM_REGION_CODE,
-                     .keep = 'none') %>%
-              distinct(org_id, org_name, parent_org_id)) %>%
-  bind_rows(df_popn_map %>% 
-              mutate(org_id = SUB_ICB_LOCATION_CODE,
-                     org_name = SUB_ICB_LOCATION_NAME,
-                     parent_org_id = ICB_CODE,
-                     .keep = 'none') %>%
-              distinct(org_id, org_name, parent_org_id)) %>%
-  bind_rows(df_popn_map %>% 
-              dplyr::filter(PCN_CODE!='U') %>%
-              mutate(org_id = PCN_CODE,
-                     org_name = PCN_NAME,
-                     parent_org_id = SUB_ICB_LOCATION_CODE,
-                     .keep = 'none') %>%
-              distinct(org_id, org_name, parent_org_id)) %>%
-  bind_rows(df_popn_map %>% 
-              dplyr::filter(PCN_CODE!='U') %>%
-              mutate(org_id = PRACTICE_CODE,
-                     org_name = PRACTICE_NAME,
-                     parent_org_id = PCN_CODE,
-                     .keep = 'none') %>%
-              distinct(org_id, org_name, parent_org_id))
   
